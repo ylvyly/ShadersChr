@@ -1005,9 +1005,9 @@ void display()
 	
 	
 	//glutSolidTeapot(1);
-	GLUquadric *quad;
-	quad = gluNewQuadric();
-	gluSphere(quad, 1, 100, 20);
+	//GLUquadric *quad;
+	//quad = gluNewQuadric();
+	//gluSphere(quad, 1, 100, 20);
 
 	////////////////////////////////////////////////////////////////
 
@@ -1151,20 +1151,20 @@ void main()
 
 	
 	
-	//loadModel("Models/Rabbit.obj");
+	loadModel("Models/Rabbit.obj");
 	//loadModel("Models/sphere.obj");
 	//loadModel("Models/UmbreonHighPoly.obj");
 	
 	//createVBOs();
-	scaleFactor = 1.5;
+	scaleFactor = 4;
 	rotAngle = -120;
-	xPos = -0.2;
-	yPos = 0.0;
-	zPos = 0.0;
+	//xPos = -0.2;
+	//yPos = 0.0;
+	//zPos = 0.0;
 	glLinkProgram(p);
 	glUseProgram(p);
 	
-	loadWithNormalMap("Textures/green.PNG", "Textures/brush.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
+	loadWithNormalMap("Textures/green.PNG", "Textures/attrib1.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
 	//loadCubeMap();
 	//LoadGLTextures("Textures/green2.png");
 	

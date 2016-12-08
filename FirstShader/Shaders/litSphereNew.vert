@@ -7,44 +7,57 @@ in vec3 Normal;
 
 varying vec2 vN;
 
+varying vec3 lightvec, n, lightDir, e, pos;
+
 void main()
 {	
 	vTexCoord = Texcoords;
 	
 	mat3 NormalMatrix = inverse(transpose(gl_ModelViewMatrix)); //gl_NormalMatrix;
-	vec3 n = normalize( NormalMatrix * Normal ); //surface normal
-	vec3 pos = vec3 (gl_ModelViewMatrix * gl_Vertex); //view plane vector
+	n = normalize( NormalMatrix * Normal ); //surface normal
+	pos = vec3 (gl_ModelViewMatrix * gl_Vertex); //view plane vector
 	
-	//vec4 p = vec4(pos,1.0);
 	//vec4 eyeNorm = normalize(gl_ModelViewMatrix * vec4(Normal, 0.0));
-	vec3 e = normalize( vec3(gl_ModelViewMatrix * gl_Vertex)); //view plane vector
+	e = normalize( vec3(gl_ModelViewMatrix * gl_Vertex)); //view plane vector
 	
 	//for extension 
-	vec3 lightDir = normalize(gl_LightSource[0].position.xyz - pos); //e instead of pos?
-	vec3 angle = acos( dot(e,lightDir) / (length(e) * length(lightDir)));
+	lightDir = normalize(gl_LightSource[0].position.xyz - pos); //e instead of pos?
+	//vec3 angle = acos( dot(e,lightDir) / (length(e) * length(lightDir)));
 	//float f = sqrt(e.x*e.x + e.z*e.z);
 	//float theta = atan(e.z/e.x);
 	//vec3 newE = (f * cos(theta + angle), f * sin(theta + angle));
 	
+	//light space normals
 	vec3 nlx = n * lightDir.x;
 	vec3 nly = n * lightDir.y;
 	vec3 nlz = n * lightDir;
-	vec3 e2 = lightDir;
 	
+	// r (brightness) and theta (light view angle) from extension paper
 	float rad = acos (nlz) / 3.1415926535897932384626433832795 ;
-	float tan = atan (nly/nlx);
-	vec2 rxy = vec2(rad,tan);
-	float m2 = 2.0 * sqrt( pow(rad,2) + pow(tan,2));
+	float tan = atan (nly / nlx);
+	
+	//calculate cartesian coordinates
 	float u = rad * cos (tan);
 	float v = rad * sin (tan);
 	
-	vec3 r = reflect(lightDir,n);	
+	vec2 rxy = vec2(rad,tan);
+	vec2 uv = vec2(u, v);
+	
+	float m2 = 2.0 * sqrt( pow(rad,2) + pow(tan,2));
+	float m3 = 2.0 * sqrt( pow(u,2) + pow(v,2));
+
+	
+	
+	vec3 r = reflect(lightDir,n);
 	float m = 2.0 * sqrt( pow(r.x,2) + pow(r.y,2) + pow(r.z,2)); //double length of r
 	vN = (r.xy / m) + 0.5;
-	//vN = vec2(u,v);
-	//vN = vec2(rad*cos(tan),rad*sin(tan));
 	
-
+	//for phong highlight
+	vec3 vDash = reflect (e,n);
+	vec3 vlx = n * vDash.x;
+	vec3 vly = n * vDash.y;
+	vec3 vlz = n * vDash;
+	lightvec = normalize (e + lightDir);
 	
 
 	//gl_Position = gl_ModelViewProjectionMatrix * p;
