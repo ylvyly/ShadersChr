@@ -6,8 +6,63 @@ varying vec2 vN;
 
 varying vec3 lightvec, n, lightDir,e,pos;
 
+vec3 erode = vec3(0);
+vec3 dilate = vec3(0);
+
+//erode & dilate
+void tex2DBiLinear( sampler2D textureSampler_i, vec2 texCoord_i )
+{
+		vec3 val = vec3(1);
+		
+		float red = 0.0;
+		float green = 0.0;
+		float blue = 0.0;
+
+		vec3 p0q0 = texture2D(textureSampler_i, texCoord_i).rgb / val;
+		vec3 p1q0 = textureOffset(textureSampler_i, texCoord_i, ivec2(1, 0)).rgb / val;
+		vec3 p0q1 = textureOffset(textureSampler_i, texCoord_i, ivec2(0, 1)).rgb / val;
+		vec3 p1q1 = textureOffset(textureSampler_i, texCoord_i, ivec2(1 , 1)).rgb / val;
+
+		//vec4 pInterp_q0 = mix( p0q0, p1q0, 0.5 ); // Interpolates top row in X direction.
+		//vec4 pInterp_q1 = mix( p0q1, p1q1, 0.5 ); // Interpolates bottom row in X direction.
+		//return mix( pInterp_q0, pInterp_q1, 0.5 ); // Interpolate in Y direction.
+		
+		red = min(p0q0.x, p1q0.x);
+		red = min(red, p0q1.x);
+		red = min(red, p1q1.x);
+		
+		green = min(p0q0.y, p1q0.y);
+		green = min(red, p0q1.y);
+		green = min(red, p1q1.y);
+		
+		blue = min(p0q0.z, p1q0.z);
+		blue = min(red, p0q1.z);
+		blue = min(red, p1q1.z);
+		
+		erode = vec3(red, green, blue);
+		
+		red = max(p0q0.x, p1q0.x);
+		red = max(red, p0q1.x);
+		red = max(red, p1q1.x);
+		
+		green = max(p0q0.y, p1q0.y);
+		green = max(red, p0q1.y);
+		green = max(red, p1q1.y);
+		
+		blue = max(p0q0.z, p1q0.z);
+		blue = max(red, p0q1.z);
+		blue = max(red, p1q1.z);
+		
+		dilate = vec3(red, green, blue);
+		
+		//return erode;
+}
+
 void main()
 {
+
+	tex2DBiLinear(diffuseTexture,vN);
+
 	//////////////////////////////////////////////////////////////////////////////////
 	//basic lit sphere shading
 	vec4 base = texture2D(diffuseTexture, vN).rgba;
@@ -61,7 +116,39 @@ void main()
 	gl_FragColor.rgb += vec3(smoothstep(eta,my,vdn)) ;
 	//////////////////////////////////////////////////////////////////////////////////
 
+	/*
+	//for low frequency decomposition
+	// 1. erode
+	int i = vN.x;
+	int j = vN.y;
+
+			//for red
+			float minR = texture2D(diffuseTexture, vec2(i-1,j-1)).r;
+			minR = minR / dot(n, );
+			if (texture2D(diffuseTexture, vec2(i,j-1)).r) {
+				minR = texture2D(diffuseTexture, vec2(i,j-1)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i+1,j-1)).r) {
+				minR = texture2D(diffuseTexture, vec2(i+1,j-1)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i-1,j)).r) {
+				minR = texture2D(diffuseTexture, vec2(i-1,j)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i+1,j)).r) {
+				minR = texture2D(diffuseTexture, vec2(i+1,j)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i-1,j+1)).r) {
+				minR = texture2D(diffuseTexture, vec2(i-1,j+1)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i,j+1)).r) {
+				minR = texture2D(diffuseTexture, vec2(i,j+1)).r;
+			}
+			if (texture2D(diffuseTexture, vec2(i+1,j+1)).r) {
+				minR = texture2D(diffuseTexture, vec2(i+1,j+1)).r;
+			}
+	*/
 	
+	gl_FragColor.rgb = erode;
 	//gl_FragColor += secondary;
 	
 	

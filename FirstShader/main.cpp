@@ -479,8 +479,6 @@ bool loadModelOld(const char* path)
 } 
 
 
-
-
 /***************************************************************
  ** init function ***
  
@@ -1174,14 +1172,3 @@ void main()
 
 
 }
-
-
-//vertex buffer object (anton's code, normal mapping chapter)
-
-//load all this into vbo instead:
-// glVertexPointer(3, GL_FLOAT, 0, vertexArray);
-//glNormalPointer(GL_FLOAT, 0, normalArray);
-
-
-//instead: calculate tangents in vertex shader
-
