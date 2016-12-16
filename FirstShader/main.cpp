@@ -29,6 +29,8 @@
 #include <assimp/Importer.hpp>      // C++ importer interface
 #include <assimp/scene.h>           // Output data structure
 #include <assimp/postprocess.h>     // Post processing flag
+#include <VertexTriangleAdjacency.h>
+
 
 
 GLuint v,f,p;
@@ -139,6 +141,14 @@ GLuint tex_normal;
 			aiVector3D normal = mesh->mNormals[face.mIndices[j]];
 			memcpy(normalArray, &normal, sizeof(float) * 3);
 			normalArray += 3;
+
+			/*
+			aiFace *faceT = //mesh->mFaces[i];
+			Assimp::VertexTriangleAdjacency vtAdjacency(faceT, i, i, true);
+			vtAdjacency.GetAdjacentTriangles(i);
+			
+			unsigned int* test = vtAdjacency.GetAdjacentTriangles(i);
+			*/
 
 			aiVector3D pos = mesh->mVertices[face.mIndices[j]];
 			memcpy(vertexArray, &pos, sizeof(float) * 3);
@@ -1162,7 +1172,7 @@ void main()
 	glLinkProgram(p);
 	glUseProgram(p);
 	
-	loadWithNormalMap("Textures/green.PNG", "Textures/attrib1.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
+	loadWithNormalMap("Textures/green.PNG", "Textures/grass.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
 	//loadCubeMap();
 	//LoadGLTextures("Textures/green2.png");
 	
