@@ -7,15 +7,27 @@ in vec3 Normal;
 
 varying vec2 vN;
 
-varying vec3 lightvec, n, lightDir, e, pos;
+varying vec3 lightvec, n, lightDir, e, pos, halfVector;
+
+varying mat3 TBN;
+
+varying vec3 t,b;
 
 void main()
 {	
+
+
+
 	vTexCoord = Texcoords;
 	
 	mat3 NormalMatrix = inverse(transpose(gl_ModelViewMatrix)); //gl_NormalMatrix;
 	n = normalize( NormalMatrix * Normal ); //surface normal
 	pos = vec3 (gl_ModelViewMatrix * gl_Vertex); //view plane vector
+	
+	t = normalize( gl_NormalMatrix * Tangent );
+	b = ( cross( n, t) );
+	TBN = mat3(t, b, n);
+	
 	
 	//vec4 eyeNorm = normalize(gl_ModelViewMatrix * vec4(Normal, 0.0));
 	e = normalize( vec3(gl_ModelViewMatrix * gl_Vertex)); //view plane vector
@@ -58,6 +70,8 @@ void main()
 	vec3 vly = n * vDash.y;
 	vec3 vlz = n * vDash;
 	lightvec = normalize (e + lightDir);
+	
+
 	
 
 	//gl_Position = gl_ModelViewProjectionMatrix * p;

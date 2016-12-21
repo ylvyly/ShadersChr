@@ -1,15 +1,20 @@
-uniform sampler2D diffuseTexture;
-uniform sampler2D normalTexture;
+uniform sampler2D diffuseTexture; //GL_TEXTURE0
+uniform sampler2D normalTexture; //GL_TEXTURE1 is actually the attributre tex
+uniform sampler2D depthTexture; //GL_TEXTURE2 is actually the normal texture
+
+uniform sampler2D depthBuffer; //GL_TEXTURE3
 
 varying vec2 vTexCoord;
 varying vec2 vN;
 
-varying vec3 lightvec, n, lightDir,e,pos;
+varying vec3 lightvec, n, lightDir, e, pos, halfVector;
+
+varying mat3 TBN;
+
+varying vec3 t,b;
 
 vec3 erode = vec3(0);
 vec3 dilate = vec3(0);
-
-
 //////////////////////////////////////////////////////////////////////////////////
 //erode & dilate function
 //////////////////////////////////////////////////////////////////////////////////
@@ -116,10 +121,10 @@ void main()
 	//float oldR = vN.x; 
 	vec3 r = reflect(lightDir,n);
 	if (brightness < 0.5) {
-		newR = smoothstep(0,1,brightness) * (r - 1) + 1;
+		newR = smoothstep(0,0.5,brightness) * (r - 1) + 1;
 	}
 	else {
-		newR = (1 - smoothstep(0,1,brightness)) * r;
+		newR = (1 - smoothstep(0.5,1,brightness)) * r;
 	}
 	float m = 2.0 * sqrt( pow(newR.x,2) + pow(newR.y,2) + pow(newR.z,2)); //double length of r
 	vec2 newVN = (newR.xy / m) + 0.5;
@@ -129,13 +134,45 @@ void main()
 	
 	
 	//////////////////////////////////////////////////////////////////////////////////
+	//normal mapping
+	//////////////////////////////////////////////////////////////////////////////////
+	vec3 v;
+	v.x = dot (lightDir, t);
+	v.y = dot (lightDir, b);
+	v.z = dot (lightDir, n);
+	vec3 lightvecN = normalize (v);
+	v.x = dot (pos, t);
+	v.y = dot (pos, b);
+	v.z = dot (pos, n);
+	pos = normalize(pos);
+	halfVector = normalize (pos + lightDir);
+	v.x = dot (halfVector, t);
+	v.y = dot (halfVector, b);
+	v.z = dot (halfVector, n);
+	halfVector = v ; 
+	vec3 normal = 2.0 * texture (depthTexture, vTexCoord.st).rgb - 1.0;
+	normal = normalize (normal * TBN);
+	float lamberFactorN = max (dot (lightvecN, normal), 0.0) ;
+	float shininessN ;
+	vec4 ambientLight = vec4 (0.0,0,0,1);//gl_LightSource[0].ambient;	
+	
+	if (lamberFactorN > 0.0)
+	{		
+		shininessN = pow (max (dot (halfVector, normal), 0.0), 2.0)  ;
+		gl_FragColor *= lamberFactorN ;
+		gl_FragColor +=	vec4(1.0) * shininessN ;		
+	}		
+	gl_FragColor +=	ambientLight;
+	//////////////////////////////////////////////////////////////////////////////////
+	
+	//////////////////////////////////////////////////////////////////////////////////
 	//specular highlight
 	//////////////////////////////////////////////////////////////////////////////////
-	float lamberFactor = max (dot (lightvec, n), 0.0) ;
+	float lamberFactor = max (dot (lightvec, normal), 0.0) ;
 	if (lamberFactor > 0.0)
 	{
 		//vec3 viewDir = normalize (lightvec);
-		vec3 refDir = normalize (- reflect (lightDir,n));
+		vec3 refDir = normalize (- reflect (lightDir,normal));
 		vec4 shininess = pow (max (dot (refDir,lightvec),0.0),100) ;//pow (max (dot (lightvec, n), 0.0), 100.0) * vec4(1) ;
 		//vec4 shininess = max (pow (dot (lightvec,n), 5),0.0) * vec4 (1,1,1,1);
 		gl_FragColor +=	shininess ;
@@ -153,12 +190,19 @@ void main()
 	gl_FragColor.rgb += vec3(smoothstep(eta,my,vdn)) ;
 	//////////////////////////////////////////////////////////////////////////////////
 
-
+	//////////////////////////////////////////////////////////////////////////////////
+	//add filtering
+	//////////////////////////////////////////////////////////////////////////////////
+	//gl_FragColor.rgb -= erode ;
 	
-	gl_FragColor.rgb -= erode ;
+	
+	//////////////////////////////////////////////////////////////////////////////////
+	
+	
+	//for testing
 	//gl_FragColor += secondary;
-	
-	
+	//gl_FragColor = texture(depthBuffer, vTexCoord) ;
+	//gl_FragColor = vec4(n, 1.0);
 	
 	
 	//highlight transformation
@@ -174,5 +218,5 @@ void main()
 	vec2 transfVN = vN * rotMatrix;
 	transfVN = vec2( (transfVN.x) / gamma, (transfVN.y ) / delta);
 	vec4 highlight = texture2D(diffuseTexture, transfVN).rgba * 0.2;
-
+	//gl_FragColor += highlight;
 }

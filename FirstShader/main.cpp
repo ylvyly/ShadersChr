@@ -29,7 +29,7 @@
 #include <assimp/Importer.hpp>      // C++ importer interface
 #include <assimp/scene.h>           // Output data structure
 #include <assimp/postprocess.h>     // Post processing flag
-#include <VertexTriangleAdjacency.h>
+//#include <VertexTriangleAdjacency.h>
 
 
 
@@ -77,6 +77,90 @@ int g_point_count = 0;
 
 GLuint tex_diffuse;
 GLuint tex_normal;
+GLuint background;
+
+GLuint depthFBO;
+GLuint depthRenderBuffer;
+GLuint tex_depth;
+
+//swiftless.com
+GLuint fbo; // The frame buffer object  
+GLuint fbo_depth; // The depth buffer for the frame buffer object  
+GLuint fbo_texture; // The texture object to write our frame buffer object to  
+int window_width = 500; // The width of our window  
+int window_height = 500; // The height of our window  
+float rotation_degree = 0.0f; // The angle of rotation in degrees for our teapot  
+
+//init depth buffer
+void initFrameBufferDepthBuffer() {
+	glGenRenderbuffersEXT(1, &fbo_depth); // Generate one render buffer and store the ID in fbo_depth 
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo_depth); // Bind the fbo_depth render buffer  
+	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, window_width, window_height); // Set the render buffer storage to be a depth component, with a width and height of the window  
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo_depth); // Set the render buffer of this buffer to the depth buffer  
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0); // Unbind the render buffer  
+}
+//init texture
+void initFrameBufferTexture(void) {
+	glEnable(GL_TEXTURE_2D);
+	glActiveTexture(GL_TEXTURE3);
+	GLint DepthTextureID = glGetUniformLocation(p, "depthBuffer");
+	glUniform1i(DepthTextureID, 3);
+	glGenTextures(1, &fbo_texture); // Generate one texture  
+	glBindTexture(GL_TEXTURE_2D, fbo_texture); // Bind the texture fbo_texture  
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL); // Create a standard texture with the width and height of our window  
+
+	// Setup the basic texture parameters  
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// Unbind the texture  
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+//call init funcs
+void initFrameBuffer(void) {
+	initFrameBufferDepthBuffer(); // Initialize our frame buffer depth buffer  
+	initFrameBufferTexture(); // Initialize our frame buffer texture  
+	
+	glGenFramebuffersEXT(1, &fbo); // Generate one frame buffer and store the ID in fbo  
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo); // Bind our frame buffer  
+	
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_texture, 0); // Attach the texture fbo_texture to the color buffer in our frame buffer   
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo_depth); // Attach the depth buffer fbo_depth to our frame buffer
+
+	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT); // Check that status of our generated frame buffer  
+	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) // If the frame buffer does not report back as complete  
+	{
+		printf( "Couldn't create frame buffer"); // Make sure you include <iostream>  
+	}
+	switch (status)
+	{
+		case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+			std::cout << "OpenGL framebuffer format not supported. " << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+			std::cout << "OpenGL framebuffer missing attachment." << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+			std::cout << "OpenGL framebuffer incomplete attachment." << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+			std::cout << "OpenGL framebuffer attached images must have same dimensions." << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+			std::cout << "OpenGL framebuffer attached images must have same format." << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+			std::cout << "OpenGL framebuffer missing draw buffer." << std::endl;
+		case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+			std::cout << "OpenGL framebuffer missing read buffer." << std::endl;
+		case GL_FRAMEBUFFER_COMPLETE_EXT:
+			std::cout << "Framebuffer complete" << std::endl;
+		default:
+			std::cout << "Status: ";
+			std::cout << status << std::endl;
+	}
+	//std::cout << status << std::endl; // Output an error to the console  
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); // Unbind our frame buffer  
+
+}
+
 
 	bool loadModel(const char* path)
 {
@@ -240,81 +324,6 @@ GLuint tex_normal;
         }
     }
 
-	//if (NULL != g_vtans) {
-
-		//printf("HERE3");
-	//}
-	/*
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-
-	GLuint points_vbo;
-	if (NULL != g_vp) {
-		glGenBuffers(1, &points_vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-		glBufferData(
-			GL_ARRAY_BUFFER, 3 * g_point_count * sizeof(GLfloat), g_vp, GL_STATIC_DRAW
-		);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-		//glBindAttribLocation(p, 0, "point");
-	}
-
-
-	GLuint normals_vbo;
-	if (NULL != g_vn) {
-		glGenBuffers(1, &normals_vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-		glBufferData(
-			GL_ARRAY_BUFFER, 3 * g_point_count * sizeof(GLfloat), g_vn, GL_STATIC_DRAW
-		);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-		glEnableVertexAttribArray(1);
-	}
-
-	GLuint texcoords_vbo;
-	if (NULL != g_vt) {
-		glGenBuffers(1, &texcoords_vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, texcoords_vbo);
-		glBufferData(
-			GL_ARRAY_BUFFER, 2 * g_point_count * sizeof(GLfloat), g_vt, GL_STATIC_DRAW
-		);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-		glEnableVertexAttribArray(2);
-	}
-
-	GLuint tangents_vbo;
-	printf("HERE2");
-	if (NULL != g_vtans) {
-		printf("HERE1");
-
-		glGenBuffers(1, &tangents_vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, tangents_vbo);
-		glBufferData(
-			GL_ARRAY_BUFFER,
-			4 * g_point_count * sizeof(GLfloat),
-			g_vtans,
-			GL_STATIC_DRAW
-		);
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 0, NULL);
-		glBindAttribLocation(p, 3, "tangent");
-
-		const char* attribute_name = "tangent";
-		GLint attribute_v_color = glGetAttribLocation(p, attribute_name);
-		if (attribute_v_color == -1) {
-			printf("Could not bind attribute ", attribute_name);
-		}
-		else {
-			printf("location ", attribute_v_color);
-		}
-
-	}
-	*/
-
 	return true;
 }
 
@@ -390,104 +399,8 @@ void createVBOs()
 		}
         
     }
-	// glGenVertexArrays(1, &vao);
-	//glBindVertexArray (vao);
 	
 }
-
-
-//"Models/UmbreonHighPoly.blend"
-bool loadModelOld(const char* path)
-{
-    
-
-	DWORD dwFlags =
-        aiProcess_Triangulate                | // triangulate n-polygons
-        aiProcess_ValidateDataStructure        |
-        aiProcess_ImproveCacheLocality         |
-        aiProcess_RemoveRedundantMaterials    |
-        aiProcess_SortByPType                |
-        aiProcess_FindDegenerates            |
-        aiProcess_FindInvalidData            |
-        aiProcess_ConvertToLeftHanded        |
-        aiProcess_GenSmoothNormals            |
-        aiProcess_CalcTangentSpace            |
-        aiProcess_GenUVCoords                |
-        aiProcess_FixInfacingNormals        |
-        aiProcess_TransformUVCoords;
-
-
-    const aiScene* scene = importer.ReadFile(path, dwFlags);
-
-	if(!scene)
-	{
-		printf( "3dModel loading error: '%s'\n", importer.GetErrorString() );
-		return false;
-	}
-
-	// Now we can access the file's contents.
-   // printf("Import of 3d scene %s succeeded.");
-
-	
-	aiMesh *mesh = scene->mMeshes[0];
-
-	numVerts = mesh->mNumFaces*3;
- 
-	vertexArray = new float[mesh->mNumFaces*3*3];
-	normalArray = new float[mesh->mNumFaces*3*3];
-	uvArray = new float[mesh->mNumFaces*3*2];
-
-	tangentArray = new float[mesh->mNumFaces * 3 * 3];
- 
-	for(unsigned int i=0;i<mesh->mNumFaces;i++)
-	{
-		const aiFace& face = mesh->mFaces[i];
- 
-		for(int j=0;j<3;j++)
-		{
-			aiVector3D uv = mesh->mTextureCoords[0][face.mIndices[j]];
-			memcpy(uvArray,&uv,sizeof(float)*2);
-			uvArray+=2;
- 
-			aiVector3D normal = mesh->mNormals[face.mIndices[j]];
-			memcpy(normalArray,&normal,sizeof(float)*3);
-			normalArray+=3;
- 
-			aiVector3D pos = mesh->mVertices[face.mIndices[j]];
-			memcpy(vertexArray,&pos,sizeof(float)*3);
-			vertexArray+=3;
-
-			
-			aiVector3D tangent = mesh->mTangents[face.mIndices[j]];
-			memcpy(tangentArray, &tangent, sizeof(float) * 3);
-			tangentArray += 3;
-		}
-	}
- 
-	uvArray-=mesh->mNumFaces*3*2;
-	normalArray-=mesh->mNumFaces*3*3;
-	vertexArray-=mesh->mNumFaces*3*3;
-	
-	tangentArray-=mesh->mNumFaces*3*3;
-
-
-	/*
-	// Now add bump mapping data (tangent and bitanget vectors for every vertex)
-	vboBumpMapData.BindVBO();
-	vboBumpMapData.UploadDataToGPU(GL_STATIC_DRAW);
-
-	
-	// Tangent vector
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 2*sizeof(aiVector3D), 0);
-	// Bitangent vector
-	glEnableVertexAttribArray(4);
-	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 2*sizeof(aiVector3D), (void*)(sizeof(aiVector3D))); 
-	*/
-
-	return true;
-} 
-
 
 /***************************************************************
  ** init function ***
@@ -533,10 +446,13 @@ void init()
 
 	
 	//loadModel("Models/UmbreonHighPoly.obj");
-	
+	//swiftless.com framebuffer init
+	glEnable(GL_TEXTURE_2D); // Enable texturing so we can bind our frame buffer texture  
+	glEnable(GL_DEPTH_TEST); // Enable depth testing  
+	initFrameBuffer(); // Create our frame buffer object  
+
+
 }
-
-
 
 
 
@@ -571,12 +487,14 @@ void LoadGLTextures(const char *filename)
 
 
 
-void loadWithNormalMap(const char *diffuse, const char *normal)                             
+void loadWithNormalMap(const char *diffuse, const char *normal, const char *depth)
 {
 
 
 	GLint DiffuseTextureID = glGetUniformLocation(p, "diffuseTexture");
 	GLint NormalTextureID = glGetUniformLocation(p, "normalTexture");
+
+	GLint DepthTextureID = glGetUniformLocation(p, "depthTexture");
 
 	glEnable(GL_TEXTURE_2D);  
 
@@ -619,57 +537,34 @@ void loadWithNormalMap(const char *diffuse, const char *normal)
 	}
 
 	glBindTexture(GL_TEXTURE_2D, tex_normal);
-	
 
 
-	//glActiveTextureARB(GL_TEXTURE0);
-	
-	//glClientActiveTexture(GL_TEXTURE0);
-	//glEnable(GL_TEXTURE_2D);
-	
-	//glUniform1i(glGetUniformLocation(p, "myTexture"), 0);
-	
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);        // clamp edges
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//glDisable(GL_TEXTURE_2D);
+	glActiveTexture(GL_TEXTURE2);
+	glUniform1i(DepthTextureID, 2);
+	tex_depth;
+	glGenTextures(1, &tex_depth);
 
+	tex_depth = SOIL_load_OGL_texture
+	(
+		depth,
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	if (0 == tex_depth)
+	{
+		printf("SOIL loading error: '%s'\n", SOIL_last_result());
+	}
 
+	glBindTexture(GL_TEXTURE_2D, tex_depth);
 	
-	//glClientActiveTexture(GL_TEXTURE1);
-	//glEnable(GL_TEXTURE_2D);
-	//glActiveTexture(GL_TEXTURE0 + 1);
-	
-	//glUniform1i(glGetUniformLocation(p, "bump"), 1);
-	//glUniform1i(NormalTextureID,1);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);        // clamp edges
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//glDisable(GL_TEXTURE_2D);
-
-	/*glUseProgram(p);
-	// Bind Textures using texture units
-	
-	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(glGetUniformLocation(p, "myTexture"), 0);
-	glBindTexture(GL_TEXTURE_2D, tex_diffuse);
-	
-	glActiveTexture(GL_TEXTURE1);
-	glUniform1i(glGetUniformLocation(p, "bump"), 1);
-	glBindTexture(GL_TEXTURE_2D, tex_normal);
-
-	glMultiTexCoord2f(GL_TEXTURE0, 0.0, 0.0);
-	glMultiTexCoord2f(GL_TEXTURE1, 0.0, 0.0);
-	*/
-
 }
 
 
 
 void loadCubeMap() 
 {
-
 	// load 6 images into a new OpenGL cube map, forcing RGB
-
-		
 	tex_cube = SOIL_load_OGL_cubemap
 	(
 		"Textures/criminal-impact_rt.tga",
@@ -769,6 +664,7 @@ void loadSkyboxTextures() {
 // display skybox
 void display_skybox() {
 
+	/*
 	char *skyvs = NULL,*skyfs = NULL;
 	skyv = glCreateShader(GL_VERTEX_SHADER);
 	skyf = glCreateShader(GL_FRAGMENT_SHADER);
@@ -776,8 +672,8 @@ void display_skybox() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	skyvs = textFileRead("Shaders/texture - Copy.vert");
-	skyfs = textFileRead("Shaders/texture - Copy.frag");
+	skyvs = textFileRead("Shaders/texture.vert");
+	skyfs = textFileRead("Shaders/texture.frag");
 	const char * skyff = skyfs;
 	const char * skyvv = skyvs;
 
@@ -796,7 +692,29 @@ void display_skybox() {
 	glLinkProgram(skyp);
 
 	glUseProgram(skyp);
+	*/
+	
+	/*
+	GLint BackgroundTextureID = glGetUniformLocation(p, "depthBuffer");
+	glActiveTexture(GL_TEXTURE3);
+	glUniform1i(BackgroundTextureID, 3);
+	background;
+	glGenTextures(1, &background);
 
+	background = SOIL_load_OGL_texture
+	(
+		"Textures/grass.png",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+	if (0 == background)
+	{
+		printf("SOIL loading error: '%s'\n", SOIL_last_result());
+	}
+
+	glBindTexture(GL_TEXTURE_2D, background);
+	*/
 	// Enable/Disable features
     glPushAttrib(GL_ENABLE_BIT);
     glEnable(GL_TEXTURE_2D);
@@ -820,6 +738,8 @@ void display_skybox() {
 
    // Render the front quad
 	//glActiveTexture(GL_TEXTURE0 );
+
+	/*
     glBindTexture(GL_TEXTURE_2D, skybox[0]);
     glBegin(GL_QUADS);
 		glTexCoord2f(1.0f, 0.0f); glVertex3f(x, y,  z + length);
@@ -840,9 +760,31 @@ void display_skybox() {
 	//skyLoc = glGetUniformLocation(skyp, "Skybox1");
 	//glUniform1i(skyLoc, 1);
  
+ // Enable/Disable features
+	glPushAttrib(GL_ENABLE_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glDisable(GL_DEPTH_TEST); // skybox should be drawn behind anything else
+	glDisable(GL_LIGHTING);
+	glDisable(GL_BLEND);
+
+	int width = 8;
+	int height = 8;
+	int length = 8;
+
+	//start in this coordinates
+	int x = -3;
+	int y = -3;
+	int z = -3;
+
     // Render the back quad
+	
 	//glActiveTexture(GL_TEXTURE0 + 2 );
-    glBindTexture(GL_TEXTURE_2D, skybox[2]);
+
+	*/
+
+	glActiveTexture(GL_TEXTURE1);
+	glUniform1i(glGetUniformLocation(p, "normalTexture"), 1);
+	glBindTexture(GL_TEXTURE_2D, tex_normal);
     glBegin(GL_QUADS);
         glTexCoord2f(1.0f, 0.0f); glVertex3f(x + width, y,  z);
         glTexCoord2f(1.0f, 1.0f); glVertex3f(x + width, y + height, z); 
@@ -852,6 +794,7 @@ void display_skybox() {
 	// skyLoc = glGetUniformLocation(skyp, "Skybox2");
 	// glUniform1i(skyLoc, 2);
  
+	 /*
     // Render the right quad
 	//glActiveTexture(GL_TEXTURE0 + 3 );
     glBindTexture(GL_TEXTURE_2D, skybox[3]);
@@ -887,9 +830,7 @@ void display_skybox() {
     glEnd();
 	//skyLoc = glGetUniformLocation(skyp, "Skybox5");
 	//glUniform1i(skyLoc, 5);
-
-
-
+	*/
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHTING);
     glEnable(GL_BLEND);
@@ -939,29 +880,80 @@ void moveLight() {
 }
 
 
-void display()
-{
-	
-	glClear(
-		GL_COLOR_BUFFER_BIT  //clear the frame buffer (set it to background color)
-		| GL_DEPTH_BUFFER_BIT //clear the depth buffer for z-buffer hidden surface removal 
-		);
-		
 
-	//////////////////******* insert your openGL drawing code here ****** ///////////
-	//display_skybox();
+void renderTeapotScene(void) {
+
+	glActiveTexture(GL_TEXTURE3);
+	glUniform1i(glGetUniformLocation(p, "depthBuffer"), 3);
+	glBindTexture(GL_TEXTURE_2D, fbo_texture);
+
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo); // Bind our frame buffer for rendering  
+	glPushAttrib(GL_VIEWPORT_BIT | GL_ENABLE_BIT); // Push our glEnable and glViewport states  
+	glViewport(0, 0, window_width, window_height); // Set the size of the frame buffer view port  
+
+	glClearColor(0.0f, 0.0f, 1.0f, 1.0f); // Set the clear colour  
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the depth and colour buffers  
+
+	glLoadIdentity();  // Reset the modelview matrix  
+
+	glTranslatef(0.0f, 0.0f, -5.0f); // Translate back 5 units  
+
+	glRotatef(rotation_degree, 1.0f, 1.0f, 0.0f); // Rotate according to our rotation_degree value  
+
+	glutSolidTeapot(1.0f); // Render a teapot
+
+	glPopAttrib(); // Restore our glEnable and glViewport states  
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); // Unbind our texture  
+
+	rotation_degree += 0.5f;
+	if (rotation_degree > 360.0f)
+		rotation_degree = 0.0f;
+}
+
+void renderSkybox() {
+	//glLoadIdentity(); 
+	//glEnable(GL_TEXTURE_2D);
+	glDisable(GL_DEPTH_TEST); // skybox should be drawn behind anything else
+	//glDisable(GL_LIGHTING);
+	
+	//glActiveTexture(GL_TEXTURE2);
+	//glUniform1i(glGetUniformLocation(p, "depthTexture"), 2);
+	//glBindTexture(GL_TEXTURE_2D, tex_depth);
+
+	// Just in case we set all vertices to white.
+	//glColor4f(1, 1, 1, 1);
+	int width = 8;
+	int height = 8;
+	int length = 8;
+	//start in this coordinates
+	int x = -3;
+	int y = -3;
+	int z = -3;
+	
+	glBegin(GL_QUADS);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x + width, y, z);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x + width, y + height, z);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x, y + height, z);
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x, y, z);
+	glEnd();
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_BLEND);
+}
+
+
+void renderModel() {
 
 	glPushMatrix(); // save current modelview matrix (mostly saves camera transform)
-	glScalef(scaleFactor, scaleFactor, scaleFactor);
-	glTranslated(xPos,yPos,zPos);
-	glRotated(rotAngle, 0, 1, 0); //rotate by rotAngle about y-axis
-	glRotated(rotAngleVert, 1, 0, 0);
-		
+	glScalef(scaleFactor, scaleFactor, scaleFactor);  //rescale model
+	glTranslated(xPos, yPos, zPos);	//reposition model
+	glRotated(rotAngle, 0, 1, 0); //rotate by about y-axis
+	glRotated(rotAngleVert, 1, 0, 0); //rotate by about x-axis
+
 	glEnable(GL_COLOR_MATERIAL);	//instead of specifying material properties
-	glColor3f(red, green, blue);			//  we will use glColor to set the diffuse color
-	//LoadGLTextures("Textures/bricks.bmp");
-	   
-	//draw model
+	glColor3f(red, green, blue);	
+
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_NORMAL_ARRAY);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -972,16 +964,11 @@ void display()
 	glClientActiveTexture(GL_TEXTURE0_ARB);
 	glTexCoordPointer(2, GL_FLOAT, 0, uvArray);
 
-	//glVertexAttribPointer(tangentArray, 3, GL_FLOAT, 0 );	
-	//glMultiTexCoord3fv(GL_TEXTURE1,&tangentArray);
-	//glEnableVertexAttribArrayARB(6); // use 7 for binormals
-	//glVertexAttribPointerARB(6, 3, GL_FLOAT, GL_FALSE, 0, tangentArray);
-	
-	GLint locTangent	=	glGetAttribLocation(p, "Tangent");
+	GLint locTangent = glGetAttribLocation(p, "Tangent");
 	glEnableVertexAttribArray(locTangent);
 	glVertexAttribPointerARB(locTangent, 3, GL_FLOAT, GL_FALSE, 0, tangentArray);
 	glBindAttribLocationARB(p, locTangent, "Tangent");
-	
+
 	GLint locNormal = glGetAttribLocation(p, "Normal");
 	glEnableVertexAttribArray(locNormal);
 	glVertexAttribPointerARB(locNormal, 3, GL_FLOAT, GL_FALSE, 0, normalArray);
@@ -995,7 +982,7 @@ void display()
 	glLinkProgramARB(p);
 
 	// Bind Textures using texture units
-
+	//loadFrameBuffer(500, 500);
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(glGetUniformLocation(p, "diffuseTexture"), 0);
 	glBindTexture(GL_TEXTURE_2D, tex_diffuse);
@@ -1004,19 +991,85 @@ void display()
 	glUniform1i(glGetUniformLocation(p, "normalTexture"), 1);
 	glBindTexture(GL_TEXTURE_2D, tex_normal);
 
+	glActiveTexture(GL_TEXTURE2);
+	glUniform1i(glGetUniformLocation(p, "depthTexture"), 2);
+	glBindTexture(GL_TEXTURE_2D, tex_depth);
+
+	/*
+	glActiveTexture(GL_TEXTURE3);
+	glUniform1i(glGetUniformLocation(p, "depthBuffer"), 3);
+	glBindTexture(GL_TEXTURE_2D, fbo_texture);
+	*/
 
 	//glDrawArrays(GL_QUADS, 0, numVerts);
 	glDrawArrays(GL_TRIANGLES, 0, numVerts);
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	
-	
-	//glutSolidTeapot(1);
-	//GLUquadric *quad;
-	//quad = gluNewQuadric();
-	//gluSphere(quad, 1, 100, 20);
 
+	//draw teapot
+		//glutSolidTeapot(1);
+	
+	//draw sphere
+		//GLUquadric *quad;
+		//quad = gluNewQuadric();
+		//gluSphere(quad, 1, 100, 20);
+
+}
+
+
+void display()
+{
+	
+	///////////////////////////////////////////////////////////////
+	//  framebuffer 
+	/*
+	renderTeapotScene();
+	
+	glClearColor(1.0f, 0.0f, 0.0f, 1.0f); // Clear the background of our window to red  
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear the colour buffer (more buffers later on)  
+	glLoadIdentity(); // Load the Identity Matrix to reset our drawing locations  
+
+	glTranslatef(0.0f, 0.0f, -2.0f);
+
+	glActiveTexture(GL_TEXTURE3);
+	glUniform1i(glGetUniformLocation(p, "depthBuffer"), 3);
+	glBindTexture(GL_TEXTURE_2D, fbo_texture);
+
+	//glutSolidTeapot(1.0f); // Render a teapot
+	glBegin(GL_QUADS);
+
+	glTexCoord2f(0.0f, 0.0f);
+	glVertex3f(-1.0f, -1.0f, 0.0f); // The bottom left corner  
+
+	glTexCoord2f(0.0f, 1.0f);
+	glVertex3f(-1.0f, 1.0f, 0.0f); // The top left corner  
+
+	glTexCoord2f(1.0f, 1.0f);
+	glVertex3f(1.0f, 1.0f, 0.0f); // The top right corner  
+
+	glTexCoord2f(1.0f, 0.0f);
+	glVertex3f(1.0f, -1.0f, 0.0f); // The bottom right corner  
+	
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glutSwapBuffers();
+
+	*/
+	///////////////////////////////////////////////////////////////
+	
+
+	glClear(
+		GL_COLOR_BUFFER_BIT  //clear the frame buffer (set it to background color)
+		| GL_DEPTH_BUFFER_BIT //clear the depth buffer for z-buffer hidden surface removal 
+		);
+		
+
+	//////////////////******* insert your openGL drawing code here ****** ///////////
+	//display_skybox();
+	//renderSkybox();
+	renderModel();
+	
 	////////////////////////////////////////////////////////////////
 
 	glPopMatrix(); // retrieve modelview matrix
@@ -1096,6 +1149,11 @@ void keyboard(unsigned char k, int x, int y)
 }
 
 
+void loadSkyboxTex(const char *backgroundTex) {
+
+
+}
+
 
 
 /*************************************************************
@@ -1118,15 +1176,19 @@ void main()
 	glutInitWindowSize(500, 500);
 	glutCreateWindow("GLUT Example 02");	// create a window
 		
-	loadSkyboxTextures();
+	//loadSkyboxTextures();
+	glewInit();
+	init();
 
 	glutDisplayFunc(display);				// set the display callback
-
+	glutIdleFunc(display);
 	glutKeyboardFunc(keyboard);
 	//glutIdleFunc(moveLight);
 
-	init();
-	glewInit();
+
+	
+	
+	//loadFrameBuffer();
 
 	char *vs = NULL, *fs = NULL;
 	v = glCreateShader(GL_VERTEX_SHADER);
@@ -1172,7 +1234,8 @@ void main()
 	glLinkProgram(p);
 	glUseProgram(p);
 	
-	loadWithNormalMap("Textures/green.PNG", "Textures/grass.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
+	loadWithNormalMap("Textures/sphereTest.jpg", "Textures/grass.png", "Textures/grass_normal.png"); //("Textures/lava.jpg", "Textures/lava_normal.jpg");
+	//loadSkyboxTex("Textures/lava.jpg");
 	//loadCubeMap();
 	//LoadGLTextures("Textures/green2.png");
 	
